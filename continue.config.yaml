@@ -1,0 +1,71 @@
+name: Local AI
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Chat & Agent
+    provider: ollama
+    model: qwen3-coder:30b
+    apiBase: http://localhost:11434
+    roles: [chat, edit, apply]
+    defaultCompletionOptions:
+      contextLength: 65536
+
+  - name: Chat (fast)
+    provider: ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://localhost:11434
+    roles: [chat, edit, apply]
+
+  - name: Autocomplete
+    provider: ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://localhost:11434
+    roles: [autocomplete]
+    defaultCompletionOptions:
+      contextLength: 8192
+
+  - name: Embeddings
+    provider: ollama
+    model: nomic-embed-text
+    apiBase: http://localhost:11434
+    roles: [embed]
+
+context:
+  - provider: code
+  - provider: file
+  - provider: currentFile
+  - provider: diff
+  - provider: terminal
+  - provider: folder
+  - provider: codebase
+  - provider: problems
+
+rules:
+  - name: Language
+    rule: >
+      Reply in the language the user writes in. Keep code, identifiers and comments
+      in English.
+
+  - name: Smallest change
+    rule: >
+      Implement the smallest change that solves the problem. Do not refactor unrelated
+      code and do not change architecture unless asked. Follow the existing style,
+      naming conventions and patterns of the codebase.
+
+  - name: Comments
+    rule: >
+      Comment sparingly. Prefer expressive method and variable names over explanatory
+      comments.
+
+  - name: Honesty
+    rule: >
+      Do not guess. When context is missing, ask for it or state your assumptions
+      explicitly.
+
+  - name: Use your tools
+    rule: >
+      In agent mode you have full access to the codebase through the provided tools and
+      can read, create and edit files. Never claim you have no access to the files. When
+      a task requires reading or changing code, call the appropriate tool instead of
+      delivering an analysis and deferring the work to a developer.

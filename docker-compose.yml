@@ -1,0 +1,42 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: lai-open-webui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEBUI_PORT:-3000}:8080"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      WEBUI_AUTH: "True"
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      WEBUI_NAME: ${WEBUI_NAME:-Local AI}
+      ENABLE_SIGNUP: ${ENABLE_SIGNUP:-True}
+      RAG_EMBEDDING_ENGINE: ollama
+      RAG_EMBEDDING_MODEL: nomic-embed-text
+      ENABLE_OPENAI_API: "False"
+      # Read-only file tools for the chat
+      TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp-files:8000","path":"openapi.json","type":"openapi","auth_type":"bearer","key":"${MCP_API_KEY}","config":{"enable":true},"info":{"name":"Files (read-only)","description":"Reads files and directories in the workspace. Writing is technically impossible."}}]'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - mcp-files
+    volumes:
+      - open-webui-data:/app/backend/data
+
+  # Read-only file tools for the chat.
+  mcp-files:
+    image: ghcr.io/open-webui/mcpo:main
+    container_name: lai-mcp-files
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - ${WORKSPACE_DIR}:/workspace:ro
+      - mcp-files-cache:/root/.npm
+    command: >
+      mcpo --host 0.0.0.0 --port 8000 --api-key ${MCP_API_KEY}
+      -- npx -y @modelcontextprotocol/server-filesystem /workspace
+
+volumes:
+  open-webui-data:
+  mcp-files-cache:

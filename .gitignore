@@ -1,0 +1,22 @@
+# Secrets - niemals einchecken
+.env
+.env.*
+!.env.example
+*.env
+*secret*
+*password*
+*credentials*
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.token
+
+# macOS
+.DS_Store
+
+# Lokale Editor-Einstellungen
+.idea/
+.vscode/
