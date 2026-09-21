@@ -1,4 +1,4 @@
-# local-ai-infrastructure
+# local-ai-setup
 
 A local AI dev setup: chat in the browser, Copilot replacement in VS Code.
 Free, offline, nothing leaves your machine.
