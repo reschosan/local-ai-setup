@@ -1,71 +1,42 @@
-name: Local AI
-version: 1.0.0
-schema: v1
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: lai-open-webui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEBUI_PORT:-3000}:8080"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      WEBUI_AUTH: "True"
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      WEBUI_NAME: ${WEBUI_NAME:-Local AI}
+      ENABLE_SIGNUP: ${ENABLE_SIGNUP:-True}
+      RAG_EMBEDDING_ENGINE: ollama
+      RAG_EMBEDDING_MODEL: nomic-embed-text
+      ENABLE_OPENAI_API: "False"
+      # Read-only file tools for the chat
+      TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp-files:8000","path":"openapi.json","type":"openapi","auth_type":"bearer","key":"${MCP_API_KEY}","config":{"enable":true},"info":{"name":"Files (read-only)","description":"Reads files and directories in the workspace. Writing is technically impossible."}}]'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - mcp-files
+    volumes:
+      - open-webui-data:/app/backend/data
 
-models:
-  - name: Chat & Agent
-    provider: ollama
-    model: qwen3-coder:30b
-    apiBase: http://localhost:11434
-    roles: [chat, edit, apply]
-    defaultCompletionOptions:
-      contextLength: 65536
+  # Read-only file tools for the chat.
+  mcp-files:
+    image: ghcr.io/open-webui/mcpo:main
+    container_name: lai-mcp-files
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - ${WORKSPACE_DIR}:/workspace:ro
+      - mcp-files-cache:/root/.npm
+    command: >
+      mcpo --host 0.0.0.0 --port 8000 --api-key ${MCP_API_KEY}
+      -- npx -y @modelcontextprotocol/server-filesystem /workspace
 
-  - name: Chat (fast)
-    provider: ollama
-    model: qwen2.5-coder:7b
-    apiBase: http://localhost:11434
-    roles: [chat, edit, apply]
-
-  - name: Autocomplete
-    provider: ollama
-    model: qwen2.5-coder:7b
-    apiBase: http://localhost:11434
-    roles: [autocomplete]
-    defaultCompletionOptions:
-      contextLength: 8192
-
-  - name: Embeddings
-    provider: ollama
-    model: nomic-embed-text
-    apiBase: http://localhost:11434
-    roles: [embed]
-
-context:
-  - provider: code
-  - provider: file
-  - provider: currentFile
-  - provider: diff
-  - provider: terminal
-  - provider: folder
-  - provider: codebase
-  - provider: problems
-
-rules:
-  - name: Language
-    rule: >
-      Reply in the language the user writes in. Keep code, identifiers and comments
-      in English.
-
-  - name: Smallest change
-    rule: >
-      Implement the smallest change that solves the problem. Do not refactor unrelated
-      code and do not change architecture unless asked. Follow the existing style,
-      naming conventions and patterns of the codebase.
-
-  - name: Comments
-    rule: >
-      Comment sparingly. Prefer expressive method and variable names over explanatory
-      comments.
-
-  - name: Honesty
-    rule: >
-      Do not guess. When context is missing, ask for it or state your assumptions
-      explicitly.
-
-  - name: Use your tools
-    rule: >
-      In agent mode you have full access to the codebase through the provided tools and
-      can read, create and edit files. Never claim you have no access to the files. When
-      a task requires reading or changing code, call the appropriate tool instead of
-      delivering an analysis and deferring the work to a developer.
+volumes:
+  open-webui-data:
+  mcp-files-cache:
