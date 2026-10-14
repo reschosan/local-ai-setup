@@ -43,6 +43,11 @@ your memory. It does not touch any editor or
 system configuration in your home directory — the editor setup lives in your projects,
 see below.
 
+**Windows:** run the scripts in Git Bash, with Ollama for Windows and Docker Desktop
+running. Start Ollama yourself first — the script only starts it on macOS. Set
+`WORKSPACE_DIR` as `C:/Users/<you>/projects`, with forward slashes. Ollama runs natively
+on the GPU there as well; the Metal check is skipped.
+
 Then open http://localhost:3000 — the first account becomes admin. After registering,
 set `ENABLE_SIGNUP=False` in `.env` and run `docker compose up -d` again.
 

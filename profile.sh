@@ -5,6 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Keeps Git Bash on Windows from rewriting paths in docker arguments.
+export MSYS_NO_PATHCONV=1
+
 info() { printf "\n\033[1;34m==> %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[1;31m!! %s\033[0m\n" "$1"; exit 1; }
 
@@ -12,7 +15,9 @@ total_ram_gb() {
   if [ "$(uname)" = "Darwin" ]; then
     echo $(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 ))
   else
-    echo $(( $(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1024 / 1024 ))
+    # Linux and Git Bash on Windows both provide /proc/meminfo.
+    kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || true)
+    echo $(( ${kb:-0} / 1024 / 1024 ))
   fi
 }
 

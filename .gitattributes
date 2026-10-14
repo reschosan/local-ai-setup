@@ -1,0 +1,2 @@
+# LF everywhere, also on Windows checkouts: bash fails on CRLF scripts and .env values.
+* text=auto eol=lf

@@ -3,17 +3,29 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Keeps Git Bash on Windows from rewriting container paths like /from in docker arguments.
+export MSYS_NO_PATHCONV=1
+
 info() { printf "\n\033[1;34m==> %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[1;31m!! %s\033[0m\n" "$1"; exit 1; }
+is_macos() { [ "$(uname)" = "Darwin" ]; }
 
 info "Checking Ollama"
-[ -d /Applications/Ollama.app ] || fail "Ollama.app is not in /Applications. Download it from ollama.com and install it there."
-command -v ollama >/dev/null 2>&1 || fail "The ollama CLI is not on your PATH. Start Ollama.app once and confirm the symlink prompt."
+if is_macos; then
+  [ -d /Applications/Ollama.app ] || fail "Ollama.app is not in /Applications. Download it from ollama.com and install it there."
+  command -v ollama >/dev/null 2>&1 || fail "The ollama CLI is not on your PATH. Start Ollama.app once and confirm the symlink prompt."
+else
+  command -v ollama >/dev/null 2>&1 || fail "The ollama CLI is not on your PATH. Install Ollama from ollama.com and open a new terminal."
+fi
 echo "OK: $(ollama --version 2>/dev/null | tail -1)"
 
 info "Starting Ollama"
 if ! curl -fsS http://localhost:11434/api/version >/dev/null 2>&1; then
-  open -a /Applications/Ollama.app
+  if is_macos; then
+    open -a /Applications/Ollama.app
+  else
+    fail "Ollama is not running. Start the Ollama app and run ./setup.sh again."
+  fi
 fi
 for _ in $(seq 1 40); do
   curl -fsS http://localhost:11434/api/version >/dev/null 2>&1 && break
@@ -21,10 +33,12 @@ for _ in $(seq 1 40); do
 done
 curl -fsS http://localhost:11434/api/version >/dev/null || fail "Ollama is not responding on port 11434."
 
-if grep -q "library=Metal" ~/.ollama/logs/server.log 2>/dev/null; then
-  echo "GPU: Metal active"
-else
-  echo "WARNING: no Metal GPU detected - inference will run on the CPU and be very slow."
+if is_macos; then
+  if grep -q "library=Metal" ~/.ollama/logs/server.log 2>/dev/null; then
+    echo "GPU: Metal active"
+  else
+    echo "WARNING: no Metal GPU detected - inference will run on the CPU and be very slow."
+  fi
 fi
 
 info "Checking the Docker daemon"
@@ -49,14 +63,15 @@ grep -q CHANGE_ME_MCP_KEY .env && sed_inplace "s/CHANGE_ME_MCP_KEY/$(openssl ran
 
 if [ "$env_created" = "1" ]; then
   fail "Adjust WORKSPACE_DIR in .env to the folder the browser chat may read on this
-       machine - an absolute path or \${HOME}/..., not ~. Then run ./setup.sh again."
+       machine - an absolute path or \${HOME}/..., not ~ (Windows: C:/Users/...).
+       Then run ./setup.sh again."
 fi
 
-WORKSPACE_DIR=$(grep '^WORKSPACE_DIR=' .env | cut -d= -f2- | sed "s|\${HOME}|$HOME|")
+WORKSPACE_DIR=$(grep '^WORKSPACE_DIR=' .env | tr -d '\r' | cut -d= -f2- | sed "s|\${HOME}|$HOME|")
 if [ ! -d "$WORKSPACE_DIR" ]; then
   fail "WORKSPACE_DIR points at '$WORKSPACE_DIR', which does not exist.
        Set it in .env to the folder the browser chat may read - an absolute path
-       or \${HOME}/..., not ~."
+       or \${HOME}/..., not ~ (Windows: C:/Users/...)."
 fi
 echo "  WORKSPACE_DIR: $WORKSPACE_DIR"
 echo "  (to change it: edit WORKSPACE_DIR in .env, then docker compose up -d)"
@@ -84,8 +99,8 @@ fi
 
 docker compose up -d
 
-# Colima, Docker Desktop and OrbStack forward host.docker.internal to the host's
-# loopback, so Ollama can stay bound to 127.0.0.1.
+# Colima, Docker Desktop and OrbStack forward host.docker.internal to the host, so
+# Ollama can stay bound to 127.0.0.1.
 if ! docker exec lai-open-webui python3 -c "import urllib.request; urllib.request.urlopen('http://host.docker.internal:11434/api/version', timeout=5)" >/dev/null 2>&1; then
   echo "WARNING: the chat container cannot reach Ollama on the host - see README, Troubleshooting."
 fi
