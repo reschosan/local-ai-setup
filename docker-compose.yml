@@ -1,3 +1,5 @@
+name: local-ai
+
 services:
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -39,4 +41,6 @@ services:
 
 volumes:
   open-webui-data:
+    name: lai-open-webui-data
   mcp-files-cache:
+    name: lai-mcp-files-cache

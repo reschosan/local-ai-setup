@@ -259,6 +259,11 @@ done
 rm ~/.continue/config.yaml    # Continue recreates it empty; back it up first if you edited it
 ```
 
+Older versions also named containers and volumes after the folder the repo was cloned
+into. `setup.sh` replaces such containers and copies their chat data into the new
+`lai-open-webui-data` volume once. The old volumes are kept as a backup; list them with
+`docker volume ls` and remove them with `docker volume rm` when everything works.
+
 ---
 
 ## Troubleshooting

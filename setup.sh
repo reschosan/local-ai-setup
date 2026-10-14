@@ -62,6 +62,26 @@ echo "  WORKSPACE_DIR: $WORKSPACE_DIR"
 echo "  (to change it: edit WORKSPACE_DIR in .env, then docker compose up -d)"
 
 info "Starting the containers"
+# Older versions named the compose project after the folder, so a clone in another
+# folder clashed with the fixed container names. Replace such containers and take
+# over their chat data once; the old volumes are kept.
+old_data=""
+for container in lai-open-webui lai-mcp-files; do
+  project=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null) || continue
+  [ "$project" = "local-ai" ] && continue
+  if [ "$container" = "lai-open-webui" ]; then
+    old_data=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/backend/data"}}{{.Name}}{{end}}{{end}}' "$container")
+  fi
+  echo "  replacing $container from an older setup (project '$project')"
+  docker rm -f "$container" >/dev/null
+done
+if [ -n "$old_data" ] && ! docker volume inspect lai-open-webui-data >/dev/null 2>&1; then
+  echo "  taking over chat data from volume $old_data"
+  docker compose create >/dev/null 2>&1 || fail "docker compose create failed - run it by hand to see why."
+  docker run --rm -v "$old_data":/from:ro -v lai-open-webui-data:/to \
+    --entrypoint sh ghcr.io/open-webui/open-webui:main -c 'cp -a /from/. /to/'
+fi
+
 docker compose up -d
 
 # Colima, Docker Desktop and OrbStack forward host.docker.internal to the host's
