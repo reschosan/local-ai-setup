@@ -3,9 +3,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-AGENT_LABEL="local.ollama.host"
-AGENT_PLIST="$HOME/Library/LaunchAgents/$AGENT_LABEL.plist"
-
 info() { printf "\n\033[1;34m==> %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[1;31m!! %s\033[0m\n" "$1"; exit 1; }
 
@@ -13,33 +10,6 @@ info "Checking Ollama"
 [ -d /Applications/Ollama.app ] || fail "Ollama.app is not in /Applications. Download it from ollama.com and install it there."
 command -v ollama >/dev/null 2>&1 || fail "The ollama CLI is not on your PATH. Start Ollama.app once and confirm the symlink prompt."
 echo "OK: $(ollama --version 2>/dev/null | tail -1)"
-
-info "Making the network binding permanent"
-# Ollama binds to 127.0.0.1 by default, which containers cannot reach.
-# This agent sets the variables at every login, before the app starts.
-cat > "$AGENT_PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$AGENT_LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/sh</string>
-    <string>-c</string>
-    <string>launchctl setenv OLLAMA_HOST 0.0.0.0; launchctl setenv OLLAMA_KEEP_ALIVE 30m; launchctl setenv OLLAMA_FLASH_ATTENTION 1; launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0; launchctl setenv OLLAMA_MAX_LOADED_MODELS 2</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-PLIST
-launchctl bootout "gui/$(id -u)/$AGENT_LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$AGENT_PLIST"
-launchctl setenv OLLAMA_HOST 0.0.0.0
-launchctl setenv OLLAMA_KEEP_ALIVE 30m
-launchctl setenv OLLAMA_FLASH_ATTENTION 1
-launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0
-launchctl setenv OLLAMA_MAX_LOADED_MODELS 2
 
 info "Starting Ollama"
 if ! curl -fsS http://localhost:11434/api/version >/dev/null 2>&1; then
@@ -51,11 +21,6 @@ for _ in $(seq 1 40); do
 done
 curl -fsS http://localhost:11434/api/version >/dev/null || fail "Ollama is not responding on port 11434."
 
-if ! lsof -nP -iTCP:11434 -sTCP:LISTEN 2>/dev/null | grep -qE '\*:11434|\[::\]'; then
-  echo "WARNING: Ollama is only listening locally. Quit Ollama.app and start it again so"
-  echo "         OLLAMA_HOST=0.0.0.0 takes effect, otherwise the chat will find no models."
-fi
-
 if grep -q "library=Metal" ~/.ollama/logs/server.log 2>/dev/null; then
   echo "GPU: Metal active"
 else
@@ -63,15 +28,7 @@ else
 fi
 
 info "Checking the Docker daemon"
-if ! docker info >/dev/null 2>&1; then
-  if command -v colima >/dev/null 2>&1; then
-    echo "Starting Colima ..."
-    colima start --cpu 2 --memory 4 --disk 20
-  else
-    fail "No running Docker daemon. Install Colima: brew install colima"
-  fi
-fi
-docker info >/dev/null 2>&1 || fail "Docker daemon not reachable."
+docker info >/dev/null 2>&1 || fail "No running Docker daemon. Start your Docker runtime (Colima, Docker Desktop, OrbStack) and run ./setup.sh again."
 echo "OK"
 
 info "Preparing .env"
@@ -98,20 +55,25 @@ echo "  WORKSPACE_DIR: $WORKSPACE_DIR"
 info "Starting the containers"
 docker compose up -d
 
-# Picks models and context size to match the available memory, pulls the models
-# and installs the Continue config. An existing ~/.continue/config.yaml is never
-# overwritten - the script prints how to merge or replace it instead.
+# Colima, Docker Desktop and OrbStack forward host.docker.internal to the host's
+# loopback, so Ollama can stay bound to 127.0.0.1.
+if ! docker exec lai-open-webui python3 -c "import urllib.request; urllib.request.urlopen('http://host.docker.internal:11434/api/version', timeout=5)" >/dev/null 2>&1; then
+  echo "WARNING: the chat container cannot reach Ollama on the host - see README, Troubleshooting."
+fi
+
+# Pulls the models that fit the available memory and sets the browser chat defaults.
 ./profile.sh "${1:-}"
 
-cat <<'DONE'
+cat <<DONE
 
 Done.
 
   Chat      http://localhost:3000   the first account becomes admin
-  VS Code   install the "Continue" extension (Continue.continue)
+  VS Code   install Continue (Continue.continue) and/or Cline (saoudrizwan.claude-dev)
 
-  Skills go into ~/.continue/skills/<name>/SKILL.md
+  Enable it for a project:
+    cp -R $PWD/workspace/.continue <project>/
+  Cline settings, usage and troubleshooting: README.md
   Change profile later: ./profile.sh
-  Usage, shortcuts and troubleshooting: README.md
 
 DONE

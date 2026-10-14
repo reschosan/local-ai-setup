@@ -1,0 +1,13 @@
+name: Local AI context
+version: 1.0.0
+schema: v1
+
+context:
+  - provider: code
+  - provider: file
+  - provider: currentFile
+  - provider: diff
+  - provider: terminal
+  - provider: folder
+  - provider: codebase
+  - provider: problems
