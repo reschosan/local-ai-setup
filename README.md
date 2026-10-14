@@ -61,6 +61,19 @@ Copy the workspace config into the project:
 cp -R /path/to/local-ai-setup/workspace/.continue <project>/
 ```
 
+`<project>` is the folder you open in VS Code — Continue only looks for `.continue/` at
+the root of each opened folder, not in subfolders or parent folders:
+
+| Opened in VS Code | Copy `.continue/` into |
+|---|---|
+| a repository | the repository root |
+| a parent folder holding several repositories | the parent folder; it covers everything below |
+| a subfolder of a monorepo | that subfolder |
+| a multi-root workspace (`.code-workspace`) | one of its folders; copies in several are harmless, models with the same name are merged |
+
+A symlink to a shared `.continue/` works as well, if several projects should use the
+same file.
+
 This adds two blocks: `.continue/models/local-ai.yaml` with the models and context sizes,
 and `.continue/context/local-ai.yaml` with `@codebase`, `@folder` and the other context
 providers. Continue injects both into its config, so the config selector shows a single

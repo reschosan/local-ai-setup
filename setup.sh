@@ -32,8 +32,10 @@ docker info >/dev/null 2>&1 || fail "No running Docker daemon. Start your Docker
 echo "OK"
 
 info "Preparing .env"
+env_created=0
 if [ ! -f .env ]; then
   cp .env.example .env
+  env_created=1
   echo "  created from .env.example"
 fi
 
@@ -45,12 +47,19 @@ sed_inplace() {
 grep -q CHANGE_ME_SECRET  .env && sed_inplace "s/CHANGE_ME_SECRET/$(openssl rand -hex 32)/"  && echo "  WEBUI_SECRET_KEY generated"
 grep -q CHANGE_ME_MCP_KEY .env && sed_inplace "s/CHANGE_ME_MCP_KEY/$(openssl rand -hex 24)/" && echo "  MCP_API_KEY generated"
 
+if [ "$env_created" = "1" ]; then
+  fail "Adjust WORKSPACE_DIR in .env to the folder the browser chat may read on this
+       machine - an absolute path or \${HOME}/..., not ~. Then run ./setup.sh again."
+fi
+
 WORKSPACE_DIR=$(grep '^WORKSPACE_DIR=' .env | cut -d= -f2- | sed "s|\${HOME}|$HOME|")
 if [ ! -d "$WORKSPACE_DIR" ]; then
   fail "WORKSPACE_DIR points at '$WORKSPACE_DIR', which does not exist.
-       Set it in .env to the folder you want to work with."
+       Set it in .env to the folder the browser chat may read - an absolute path
+       or \${HOME}/..., not ~."
 fi
 echo "  WORKSPACE_DIR: $WORKSPACE_DIR"
+echo "  (to change it: edit WORKSPACE_DIR in .env, then docker compose up -d)"
 
 info "Starting the containers"
 docker compose up -d
