@@ -19,16 +19,11 @@ GPU, so a containerised Ollama would be 10-20x slower.
 
 ## Setup
 
-**Requirements**
-
-- **Ollama** from [ollama.com](https://ollama.com). On macOS install it into
-  `/Applications`, not `~/Applications` — otherwise a prompt blocks every start.
-  Confirm the password prompt on first launch, it creates `/usr/local/bin/ollama`.
-- **A Docker runtime**: [Colima](https://github.com/abiosoft/colima)
-  (`brew install colima`), Docker Desktop or OrbStack.
-- **16 GB RAM** for the small profile, 48 GB+ for the large models with long context.
-
-**Install**
+Needs [Ollama](https://ollama.com) — on macOS in `/Applications`, not `~/Applications`,
+or a prompt blocks every start; confirm the password prompt on first launch, it creates
+`/usr/local/bin/ollama`. Plus a Docker runtime ([Colima](https://github.com/abiosoft/colima)
+via `brew install colima`, Docker Desktop or OrbStack) and 16 GB RAM, 48 GB+ for the
+large models with long context.
 
 ```bash
 git clone https://github.com/reschosan/local-ai-setup.git
@@ -39,9 +34,8 @@ cp .env.example .env          # set WORKSPACE_DIR to the folder the chat may rea
 
 Start your Docker runtime first — the script only checks that one is running. It then
 checks Ollama, generates secrets, starts the containers and pulls the models that fit
-your memory. It does not touch any editor or
-system configuration in your home directory — the editor setup lives in your projects,
-see below.
+your memory. It touches no editor or system configuration in your home directory; the
+editor setup lives in your projects, see below.
 
 **Windows:** run the scripts in Git Bash, with Ollama for Windows and Docker Desktop
 running. Start Ollama yourself first — the script only starts it on macOS. Set
@@ -66,8 +60,8 @@ Copy the workspace config into the project:
 cp -R /path/to/local-ai-setup/workspace/.continue <project>/
 ```
 
-`<project>` is the folder you open in VS Code — Continue only looks for `.continue/` at
-the root of each opened folder, not in subfolders or parent folders:
+Continue only looks for `.continue/` at the root of each folder you open, not in
+subfolders or parent folders:
 
 | Opened in VS Code | Copy `.continue/` into |
 |---|---|
@@ -76,33 +70,19 @@ the root of each opened folder, not in subfolders or parent folders:
 | a subfolder of a monorepo | that subfolder |
 | a multi-root workspace (`.code-workspace`) | one of its folders; copies in several are harmless, models with the same name are merged |
 
-A symlink to a shared `.continue/` works as well, if several projects should use the
-same file.
+A symlink to a shared `.continue/` works too. It adds two blocks —
+`.continue/models/local-ai.yaml` (models and context sizes) and
+`.continue/context/local-ai.yaml` (`@codebase`, `@folder` and the other providers) —
+which Continue injects into its config, so the selector shows one entry and every model
+in it comes from the project. Commit `.continue/` for the team, or ignore it.
 
-This adds two blocks: `.continue/models/local-ai.yaml` with the models and context sizes,
-and `.continue/context/local-ai.yaml` with `@codebase`, `@folder` and the other context
-providers. Continue injects both into its config, so the config selector shows a single
-entry and every model in it comes from the project. Pick model and context size in the
-model selector. Commit `.continue/` so the whole team gets it, or add it to `.gitignore`.
+Keep `~/.continue/config.yaml` at Continue's empty default (`models: []`) and put nothing
+in it — Continue always lists this global config and recreates it when missing, so it can
+only be kept empty, not removed. Avoid `.continue/agents/` as well: every file there shows
+up as an additional config.
 
-Keep `~/.continue/config.yaml` at Continue's empty default and put nothing in it:
-
-```yaml
-name: Main Config
-version: 1.0.0
-schema: v1
-models: []
-```
-
-Continue always lists this global config and recreates it when it is missing, so it can
-only be kept empty, not removed. Do not use `.continue/agents/` either: every file there
-shows up as an additional config.
-
-To switch off telemetry for the project, add to `<project>/.vscode/settings.json`:
-
-```json
-{ "continue.telemetryEnabled": false }
-```
+Telemetry off per project, in `<project>/.vscode/settings.json`:
+`{ "continue.telemetryEnabled": false }`
 
 ### Cline
 
@@ -110,9 +90,8 @@ Everything Cline reads from the project stays in the project: `AGENTS.md`,
 `.clinerules/` (rules, workflows, hooks) and skills in `.claude/skills/`,
 `.agents/skills/`, `.cline/skills/` and `.clinerules/skills/`.
 
-The one exception is provider and model: Cline has no project file for them (checked in
-4.1.24) and keeps a single global configuration, so there is still only one to choose
-from. Set it once in the Cline panel under **Settings → API Configuration**:
+Provider and model are the exception — Cline has no project file for them (as of 4.1.24),
+only one global setting. Set it once under **Settings → API Configuration**:
 
 | Setting | Value |
 |---|---|
@@ -122,14 +101,40 @@ from. Set it once in the Cline panel under **Settings → API Configuration**:
 | Model Context Window | `131072`, or `262144` for 256k — see [Context sizes](#context-sizes) |
 | Request Timeout (ms) | `1800000` |
 
-Enter the numbers without thousands separators: Cline passes the field to Ollama as it
-is, and `131.072` becomes a context of 131 tokens. With **Use different models for Plan
-and Act modes** switched on, set model and context for both modes.
-The default timeout of 5 minutes is too short for local models: ingesting 70k tokens
-takes 8 to 13 minutes on an M5 Pro, and Cline would abort the request.
+No thousands separators — Cline passes the field to Ollama verbatim, and `131.072`
+becomes a context of 131 tokens. With **Use different models for Plan and Act modes** on,
+set both. The 5-minute default timeout is too short: ingesting 70k tokens takes 8 to 13
+minutes on an M5 Pro, and Cline would abort.
 
-Cline follows the VS Code telemetry setting: `"telemetry.telemetryLevel": "off"` in the
-user settings switches it off.
+Telemetry follows VS Code: `"telemetry.telemetryLevel": "off"` in the user settings.
+
+---
+
+## Other clients
+
+Ollama ships launchers that point a client at your local models:
+
+```bash
+ollama launch              # interactive menu
+ollama launch claude       # Claude Code
+ollama launch vscode       # VS Code
+ollama launch cline        # Cline
+```
+
+`ollama launch --help` lists the rest (`copilot`, `opencode`, `codex`, `qwen`, `droid`,
+`kimi` and more). The model chosen per integration lands in `~/.ollama/config.json`.
+
+**Claude Code** on local models: `ollama launch claude` routes it through a local proxy,
+so no requests reach Anthropic. Caps cost on routine work while keeping the interface.
+
+**VS Code without Continue or Cline** runs through the GitHub Copilot Chat extension,
+which `ollama launch vscode` expects to be installed; it prints a hint if it is missing.
+The models then appear in Copilot Chat's model picker under *Other models*. Two caveats:
+the extension needs a GitHub account, and it covers chat only — autocomplete,
+`@codebase` embeddings, skills and `AGENTS.md` stay with Continue and Cline.
+
+Unlike Continue and Cline, these clients send no context size of their own, so the
+**Context length** slider in the Ollama app applies to them.
 
 ---
 
@@ -152,15 +157,15 @@ Measured on an M5 Pro with 48 GB, where macOS gives the GPU at most 37.4 GiB:
 - **`Qwen3 Coder 30B · 256k`** needs 64 GB+. With less, part of the model runs on the CPU.
 - **32 GB**: `Qwen3 Coder 30B · 32k`. **16 GB**: `Qwen2.5 Coder 7B · 16k`.
 
-A bigger window reserves its memory as soon as the model loads, and once it no longer
-fits on the GPU even short prompts get slow. Filling 256k takes well over half an hour,
-because attention grows quadratically. For large codebases use `@codebase` instead:
-semantic search sends a few thousand relevant tokens rather than a hundred thousand
-arbitrary ones.
+A bigger window reserves its memory the moment the model loads, and once it no longer
+fits on the GPU even short prompts get slow. Attention grows quadratically, so filling
+256k takes well over half an hour. For large codebases use `@codebase` instead: semantic
+search sends a few thousand relevant tokens rather than a hundred thousand arbitrary
+ones.
 
-The **Context length** slider in the Ollama app only applies to clients that send no
-context size of their own, such as `ollama launch` or Ollama's own chat. Continue and
-Cline always send one, Open WebUI the one `profile.sh` sets.
+The **Context length** slider in the Ollama app does not apply here: Continue and Cline
+always send a context size, Open WebUI the one `profile.sh` sets. It only affects the
+clients under [Other clients](#other-clients).
 
 ---
 
@@ -177,9 +182,9 @@ Cline always send one, Open WebUI the one `profile.sh` sets.
 | `medium` | + `qwen3-coder:30b` | 30B, 32k | 32 GB+ |
 | `large` | + `qwen3-coder:30b`, `qwen3.8:27b` | 30B, 64k | 48 GB+ |
 
-`nomic-embed-text` is always pulled for embeddings. The profile only decides which models
-are downloaded and what the browser chat uses — in VS Code you choose in the model selector.
-For a model outside the profiles: `ollama pull <name>` and add an entry to
+`nomic-embed-text` is always pulled for embeddings. The profile only decides what gets
+downloaded and what the browser chat uses; in VS Code you pick in the model selector. For
+a model outside the profiles: `ollama pull <name>`, then add an entry to
 `.continue/models/local-ai.yaml` in your project.
 
 ---
@@ -195,12 +200,12 @@ For a model outside the profiles: `ollama pull <name>` and add an entry to
 
 In Continue, switch the chat panel from `Chat` to **`Agent`** so the model may read and
 edit files. Context via `@`: `@codebase`, `@file`, `@folder`, `@diff`, `@problems`,
-`@terminal`. Cline always works with tools; it asks before every change unless you allow
+`@terminal`. Cline always works with tools and asks before every change unless you allow
 auto-approve. Autocomplete comes from Continue — Cline has none.
 
-In the browser the chat can also read your workspace under `/workspace`, analyse
-dropped documents, and store system prompts as custom "models". Writing is technically
-impossible there — that is what VS Code is for.
+In the browser the chat reads your workspace under `/workspace`, analyses dropped
+documents and stores system prompts as custom "models". Writing is impossible there — the
+mount is read-only.
 
 ---
 
@@ -229,11 +234,11 @@ Prompts, code and chats stay on the machine. Inference is local, Ollama listens 
 `ENABLE_OPENAI_API` is off, embeddings run on local `nomic-embed-text`, and the file
 service has no port at all.
 
-Outbound connections without content: Ollama checks for updates, models and images are
-downloaded once, and the editors' telemetry unless switched off as described above.
-Ollama also offers cloud models (tags ending in `:cloud`); those **do** send your prompts.
-To block them, set `"disable_ollama_cloud": true` in `~/.ollama/server.json` and restart
-Ollama.
+Outbound connections without content: Ollama's update check, the one-time model and
+image downloads, and the editors' telemetry unless switched off as described above.
+Ollama also offers cloud models (tags ending in `:cloud`) — those **do** send your
+prompts. Block them with `"disable_ollama_cloud": true` in `~/.ollama/server.json`,
+then restart Ollama.
 
 ---
 
@@ -243,33 +248,17 @@ Ollama.
 docker compose up -d / down / logs -f
 docker compose pull && docker compose up -d   # update
 
-ollama list / ps / stop <model>
+ollama list            # installed models
+ollama ps              # loaded now, with context size and GPU share
+ollama pull <name>     # download
+ollama rm <name>       # delete
+ollama stop <name>     # unload from memory
+ollama show <name>     # parameters, context length, template
+ollama run <name>      # quick test in the terminal
 ```
 
 The containers come back up via `restart: unless-stopped` once the Docker runtime runs.
 With Colima, `brew services start colima` starts it at login.
-
-**Upgrading from an older version of this repo:** it installed a LaunchAgent that set
-`OLLAMA_HOST`, `OLLAMA_KV_CACHE_TYPE` and others. The Ollama app starts its server with
-its own environment, so these never arrived — the server log shows them empty. It is no
-longer needed. To remove it, and to reset the Continue config the scripts copied into
-your home to the empty default:
-
-```bash
-launchctl bootout gui/$(id -u)/local.ollama.host
-rm ~/Library/LaunchAgents/local.ollama.host.plist
-for v in OLLAMA_HOST OLLAMA_KEEP_ALIVE OLLAMA_FLASH_ATTENTION OLLAMA_KV_CACHE_TYPE OLLAMA_MAX_LOADED_MODELS; do
-  launchctl unsetenv "$v"
-done
-rm ~/.continue/config.yaml    # Continue recreates it empty; back it up first if you edited it
-```
-
-Older versions also named containers and volumes after the folder the repo was cloned
-into. `setup.sh` replaces such containers and copies their chat data into the new
-`lai-open-webui-data` volume once. The old volumes are kept as a backup; list them with
-`docker volume ls` and remove them with `docker volume rm` when everything works.
-
----
 
 ## Troubleshooting
 
@@ -283,8 +272,8 @@ docker exec lai-open-webui python3 -c "import urllib.request; print(urllib.reque
 ```
 
 Colima, Docker Desktop and OrbStack forward this to the host's `127.0.0.1`. A runtime
-that does not needs **Expose Ollama to the network** in the Ollama settings — that makes
-Ollama reachable for the whole network, without a password.
+that does not needs **Expose Ollama to the network** in the Ollama settings, which opens
+Ollama to the whole network without a password.
 
 **Running on the GPU?** — `ollama ps` must show `100% GPU`. Something like
 `25%/75% CPU/GPU` means the context does not fit; pick a smaller one. On a fresh install,
@@ -294,21 +283,54 @@ Ollama reachable for the whole network, without a password.
 [Cline](#cline).
 
 **"I don't have access to the files"** — true in Continue's chat mode; only **agent**
-mode gives the model tools. Even then a 30B model sometimes skips the tool on "create
-file X" — phrase it more directly.
+mode gives the model tools. Even there a 30B model sometimes skips the tool on "create
+file X"; phrase it more directly.
 
-**Raw JSON in the reply** like `{"name": "ask_user", ...}` — the model cannot do proper
-tool calling. Verify the call lands in `message.tool_calls` rather than
-`message.content`:
+**Tool calls fail** — `Tool edit_file not found`, `arguments were invalid`, or raw
+`{"name": ...}` in the reply. The model emits its call in a format Ollama does not parse,
+so it lands in `message.content` instead of `message.tool_calls`. Test a model with two
+required arguments — one is not enough to reproduce it:
 
 ```bash
 curl -s http://localhost:11434/api/chat -d '{"model":"MODEL","stream":false,
   "tools":[{"type":"function","function":{"name":"t","description":"x",
-  "parameters":{"type":"object","properties":{}}}}],
-  "messages":[{"role":"user","content":"call t"}]}' | python3 -m json.tool
+  "parameters":{"type":"object","required":["a","b"],
+  "properties":{"a":{"type":"string"},"b":{"type":"string"}}}}}],
+  "messages":[{"role":"user","content":"call t with a=1 and b=2"}]}' | python3 -m json.tool
 ```
 
+The call must appear under `message.tool_calls` **with both arguments**. If
+`<function=...>` turns up in `message.content`, that model cannot drive an agent.
+Measured: `qwen3-coder:30b` fails whenever an argument spans several lines — 4 of 10
+attempts succeeded — and a file edit passes exactly that, so ask it for small, targeted
+replacements. `qwen2.5-coder:32b` never produces a valid call.
+
 **Machine feels slow** — `ollama stop <model>` unloads immediately.
+
+---
+
+## Upgrading from an older version
+
+Skip this on a fresh install.
+
+Older versions installed a LaunchAgent for `OLLAMA_HOST`, `OLLAMA_KV_CACHE_TYPE` and
+others. The Ollama app starts its server with its own environment, so these never
+arrived — the server log shows them empty. Remove it, and reset the Continue config the
+scripts copied into your home:
+
+```bash
+launchctl bootout gui/$(id -u)/local.ollama.host
+rm ~/Library/LaunchAgents/local.ollama.host.plist
+for v in OLLAMA_HOST OLLAMA_KEEP_ALIVE OLLAMA_FLASH_ATTENTION OLLAMA_KV_CACHE_TYPE OLLAMA_MAX_LOADED_MODELS; do
+  launchctl unsetenv "$v"
+done
+rm ~/.continue/config.yaml    # Continue recreates it empty; back it up first if you edited it
+```
+
+They also named containers and volumes after the folder the repo was cloned into.
+`setup.sh` replaces such containers and copies their chat data into the new
+`lai-open-webui-data` volume once, keeping the old volumes as a backup — list them with
+`docker volume ls`, remove them with `docker volume rm` once everything works.
 
 ---
 
