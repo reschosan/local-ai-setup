@@ -24,9 +24,9 @@ total_ram_gb() {
 # profile -> browser chat model, its context, models to pull
 profile_values() {
   case "$1" in
-    small)  echo "qwen2.5-coder:7b 16384 qwen2.5-coder:7b nomic-embed-text" ;;
-    medium) echo "qwen3-coder:30b  32768 qwen3-coder:30b qwen2.5-coder:7b nomic-embed-text" ;;
-    large)  echo "qwen3-coder:30b  65536 qwen3-coder:30b qwen3.8:27b qwen2.5-coder:7b nomic-embed-text" ;;
+    small)  echo "qwen2.5-coder:7b 16384 qwen2.5-coder:7b qwen3-embedding:0.6b" ;;
+    medium) echo "qwen3.6:35b-a3b  32768 qwen3.6:35b-a3b qwen3-embedding:0.6b" ;;
+    large)  echo "qwen3.6:35b-a3b 131072 qwen3.6:35b-a3b qwen3.8:27b qwen3-embedding:0.6b" ;;
     *) return 1 ;;
   esac
 }
@@ -74,7 +74,7 @@ Profile "$1":
   Models          $models
   Browser chat    $chat with $ctx tokens of context
 
-In VS Code, pick model and context size in the Continue or Cline model selector.
+In VS Code, set model and context size in the Cline or Zoo Code settings.
 EOF
 }
 
@@ -97,8 +97,8 @@ cat <<EOF
 Memory: ${ram} GB  ->  suggested profile: $suggested
 
   small    qwen2.5-coder:7b                     16 GB+
-  medium   + qwen3-coder:30b                    32 GB+
-  large    + qwen3-coder:30b and qwen3.8:27b    48 GB+
+  medium   + qwen3.6:35b-a3b                    32 GB+
+  large    + qwen3.6:35b-a3b and qwen3.8:27b    48 GB+
 
 EOF
 printf "Profile [%s]: " "$suggested"

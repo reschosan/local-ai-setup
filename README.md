@@ -1,11 +1,11 @@
 # local-ai-setup
 
-A local AI dev setup: chat in the browser, Copilot replacement in VS Code.
+A local AI dev setup: chat in the browser, coding agents in VS Code.
 Free, offline, nothing leaves your machine.
 
 ```
-  VS Code + Continue ──┐
-  VS Code + Cline ─────┼──>  Ollama   native on the host, 127.0.0.1:11434, Metal GPU
+  VS Code + Cline ─────┐
+  VS Code + Zoo Code ──┼──>  Ollama   native on the host, 127.0.0.1:11434, Metal GPU
   Browser :3000 ───────┘
    (Open WebUI)
         │
@@ -34,8 +34,8 @@ cp .env.example .env          # set WORKSPACE_DIR to the folder the chat may rea
 
 Start your Docker runtime first — the script only checks that one is running. It then
 checks Ollama, generates secrets, starts the containers and pulls the models that fit
-your memory. It touches no editor or system configuration in your home directory; the
-editor setup lives in your projects, see below.
+your memory. It touches no editor or system configuration; the editors are set up by
+hand, see below.
 
 **Windows:** run the scripts in Git Bash, with Ollama for Windows and Docker Desktop
 running. Start Ollama yourself first — the script only starts it on macOS. Set
@@ -47,42 +47,11 @@ set `ENABLE_SIGNUP=False` in `.env` and run `docker compose up -d` again.
 
 ---
 
-## Editor setup: workspace only
+## Editor setup
 
-Continue and Cline are configured per project, not in the home directory, and there is
-exactly **one** config to choose from: the workspace's.
-
-### Continue
-
-Copy the workspace config into the project:
-
-```bash
-cp -R /path/to/local-ai-setup/workspace/.continue <project>/
-```
-
-Continue only looks for `.continue/` at the root of each folder you open, not in
-subfolders or parent folders:
-
-| Opened in VS Code | Copy `.continue/` into |
-|---|---|
-| a repository | the repository root |
-| a parent folder holding several repositories | the parent folder; it covers everything below |
-| a subfolder of a monorepo | that subfolder |
-| a multi-root workspace (`.code-workspace`) | one of its folders; copies in several are harmless, models with the same name are merged |
-
-A symlink to a shared `.continue/` works too. It adds two blocks —
-`.continue/models/local-ai.yaml` (models and context sizes) and
-`.continue/context/local-ai.yaml` (`@codebase`, `@folder` and the other providers) —
-which Continue injects into its config, so the selector shows one entry and every model
-in it comes from the project. Commit `.continue/` for the team, or ignore it.
-
-Keep `~/.continue/config.yaml` at Continue's empty default (`models: []`) and put nothing
-in it — Continue always lists this global config and recreates it when missing, so it can
-only be kept empty, not removed. Avoid `.continue/agents/` as well: every file there shows
-up as an additional config.
-
-Telemetry off per project, in `<project>/.vscode/settings.json`:
-`{ "continue.telemetryEnabled": false }`
+Cline and Zoo Code read rules and skills from the project; only provider and model are
+one global setting each. Neither has autocomplete, so this setup has none: Continue,
+which provided it, is no longer maintained since June 2026 and was dropped.
 
 ### Cline
 
@@ -97,16 +66,39 @@ only one global setting. Set it once under **Settings → API Configuration**:
 |---|---|
 | API Provider | `Ollama` |
 | Base URL | leave empty (`http://localhost:11434`) |
-| Model | `qwen3-coder:30b` or `qwen3.8:27b` |
-| Model Context Window | `131072`, or `262144` for 256k — see [Context sizes](#context-sizes) |
+| Model | `qwen3.6:35b-a3b` or `qwen3.8:27b` |
+| Model Context Window | `32768`, `65536`, `131072` or `262144` — see [Context sizes](#context-sizes) |
 | Request Timeout (ms) | `1800000` |
 
 No thousands separators — Cline passes the field to Ollama verbatim, and `131.072`
 becomes a context of 131 tokens. With **Use different models for Plan and Act modes** on,
-set both. The 5-minute default timeout is too short: ingesting 70k tokens takes 8 to 13
-minutes on an M5 Pro, and Cline would abort.
+set both. The 5-minute default timeout is too short: ingesting 70k tokens takes about
+2 minutes with `qwen3.6:35b-a3b` and over 10 with `qwen3.8:27b` on an M5 Pro, and Cline
+would abort.
 
 Telemetry follows VS Code: `"telemetry.telemetryLevel": "off"` in the user settings.
+
+### Zoo Code
+
+A fork of Roo Code (itself a Cline fork) that runs several agent modes — code, architect,
+ask, debug. Like Cline it keeps provider and model globally, under **Settings → Providers**:
+
+| Setting | Value |
+|---|---|
+| API Provider | `Ollama` |
+| Base URL | `http://localhost:11434` |
+| Model | `qwen3.6:35b-a3b` or `qwen3.8:27b` |
+
+Raise `zoo-code.apiRequestTimeout` in the VS Code settings — it defaults to 600 seconds,
+and ingesting 70k tokens with `qwen3.8:27b` takes over 10 minutes on an M5 Pro.
+
+Unlike Cline it indexes the codebase itself with Ollama embeddings, for semantic search
+over large projects. Its default model is `nomic-embed-text`; under codebase indexing
+set the model to `qwen3-embedding:0.6b` with dimension `1024`, which the profiles pull.
+
+From the project it reads `AGENTS.md` (`zoo-code.useAgentRules`, on by default), rules in
+`.roo/rules/` plus per-mode folders like `.roo/rules-code/`, `.clinerules/` from Cline,
+and skills in `.roo/skills/<name>/SKILL.md`.
 
 ---
 
@@ -127,45 +119,50 @@ ollama launch cline        # Cline
 **Claude Code** on local models: `ollama launch claude` routes it through a local proxy,
 so no requests reach Anthropic. Caps cost on routine work while keeping the interface.
 
-**VS Code without Continue or Cline** runs through the GitHub Copilot Chat extension,
+**VS Code without Cline or Zoo Code** runs through the GitHub Copilot Chat extension,
 which `ollama launch vscode` expects to be installed; it prints a hint if it is missing.
 The models then appear in Copilot Chat's model picker under *Other models*. Two caveats:
-the extension needs a GitHub account, and it covers chat only — autocomplete,
-`@codebase` embeddings, skills and `AGENTS.md` stay with Continue and Cline.
+the extension needs a GitHub account, and it covers chat only.
 
-Unlike Continue and Cline, these clients send no context size of their own, so the
-**Context length** slider in the Ollama app applies to them.
+These clients send no context size of their own, so the **Context length** slider in the
+Ollama app applies to them.
 
 ---
 
 ## Context sizes
 
-Measured on an M5 Pro with 48 GB, where macOS gives the GPU at most 37.4 GiB:
+Measured on an M5 Pro with 48 GB, where macOS gives the GPU at most 37.4 GiB, with
+Ollama 0.34.2:
 
 | Model | Context | Memory | Fully on the GPU | Prompt ingest |
 |---|---|---|---|---|
 | `qwen2.5-coder:7b` | 8k | 4.8 GiB | yes | ~1,300 tokens/s |
-| `qwen3-coder:30b` | 32k | 20.3 GiB | yes | 29k tokens in 80 s |
-| `qwen3-coder:30b` | 64k | 23.4 GiB | yes | 45k tokens in 191 s |
-| `qwen3-coder:30b` | 128k | 29.5 GiB | yes | 71k tokens in 474 s |
-| `qwen3-coder:30b` | 256k | 41.9 GiB | **no** | 6k tokens in 113 s — 15-20x slower |
-| `qwen3.8:27b` | 128k | 24.4 GiB | yes | 43k tokens in 200 s |
-| `qwen3.8:27b` | 256k | 33.1 GiB | yes | 73k tokens in 805 s |
+| `qwen3.6:35b-a3b` | 32k | 20.9 GiB | yes | |
+| `qwen3.6:35b-a3b` | 64k | 21.0 GiB | yes | |
+| `qwen3.6:35b-a3b` | 128k | 21.3 GiB | yes | 42k tokens in 58 s |
+| `qwen3.6:35b-a3b` | 256k | 21.7 GiB | yes | |
+| `qwen3.8:27b` | 32k | 17.0 GiB | yes | |
+| `qwen3.8:27b` | 64k | 17.3 GiB | yes | |
+| `qwen3.8:27b` | 128k | 17.2 GiB | yes | 42k tokens in 194 s |
+| `qwen3.8:27b` | 256k | 20.3 GiB | **no**, 86% | 42k tokens in 362 s |
 
-- **48 GB**: `Qwen3 Coder 30B · 128k` as the default. For 256k use `Qwen 3.8 27B · 256k`:
-  only 16 of its layers keep a KV cache, so 256k costs 17 GiB instead of 24 GiB.
-- **`Qwen3 Coder 30B · 256k`** needs 64 GB+. With less, part of the model runs on the CPU.
-- **32 GB**: `Qwen3 Coder 30B · 32k`. **16 GB**: `Qwen2.5 Coder 7B · 16k`.
+- **48 GB**: `qwen3.6:35b-a3b` with 128k as the default, 256k costs only 0.4 GiB more.
+  Both Qwen 3.6 and 3.8 keep a KV cache in few of their layers, so context is cheap. As a
+  mixture of experts with 3B active parameters, 3.6 reads prompts about 3x faster than the
+  dense `qwen3.8:27b`; use 3.8 when the answer quality matters more than speed, up to
+  128k — at 256k Ollama moves 4 of its 66 layers to the CPU and it gets twice as slow.
+- **32 GB**: `qwen3.6:35b-a3b` with 32k — tight, check that `ollama ps` shows `100% GPU`.
+  `qwen3.8:27b` with 32k or 64k leaves more room, at a third of the speed.
+- **16 GB**: `qwen2.5-coder:7b` with 16k; the model handles at most 32k.
 
 A bigger window reserves its memory the moment the model loads, and once it no longer
 fits on the GPU even short prompts get slow. Attention grows quadratically, so filling
-256k takes well over half an hour. For large codebases use `@codebase` instead: semantic
-search sends a few thousand relevant tokens rather than a hundred thousand arbitrary
-ones.
+256k takes well over half an hour. For large codebases let the agent search instead —
+Zoo Code's codebase index sends a few thousand relevant tokens rather than a hundred
+thousand arbitrary ones.
 
-The **Context length** slider in the Ollama app does not apply here: Continue and Cline
-always send a context size, Open WebUI the one `profile.sh` sets. It only affects the
-clients under [Other clients](#other-clients).
+The **Context length** slider in the Ollama app only applies to clients that send no
+context size of their own: Cline always sends one, Open WebUI the one `profile.sh` sets.
 
 ---
 
@@ -179,29 +176,23 @@ clients under [Other clients](#other-clients).
 | Profile | Models pulled | Browser chat | RAM |
 |---|---|---|---|
 | `small` | `qwen2.5-coder:7b` | 7B, 16k | 16 GB+ |
-| `medium` | + `qwen3-coder:30b` | 30B, 32k | 32 GB+ |
-| `large` | + `qwen3-coder:30b`, `qwen3.8:27b` | 30B, 64k | 48 GB+ |
+| `medium` | + `qwen3.6:35b-a3b` | 3.6, 32k | 32 GB+ |
+| `large` | + `qwen3.6:35b-a3b`, `qwen3.8:27b` | 3.6, 128k | 48 GB+ |
 
-`nomic-embed-text` is always pulled for embeddings. The profile only decides what gets
-downloaded and what the browser chat uses; in VS Code you pick in the model selector. For
-a model outside the profiles: `ollama pull <name>`, then add an entry to
-`.continue/models/local-ai.yaml` in your project.
+`qwen3-embedding:0.6b` is always pulled for embeddings. On German and English questions
+against the sections of this README it found the right one 12 of 12 times,
+`nomic-embed-text` 8 of 12.
+
+The profile only decides what gets downloaded and what the browser chat uses; in VS Code
+you set the model in Cline or Zoo Code. For a model outside the profiles,
+`ollama pull <name>` and select it there.
 
 ---
 
 ## Usage
 
-| Key | Action |
-|---|---|
-| `Tab` | accept autocomplete |
-| `⌘I` | rewrite the selection |
-| `⌘L` | send selection to chat |
-| `⌘⇧Enter` | accept diff |
-
-In Continue, switch the chat panel from `Chat` to **`Agent`** so the model may read and
-edit files. Context via `@`: `@codebase`, `@file`, `@folder`, `@diff`, `@problems`,
-`@terminal`. Cline always works with tools and asks before every change unless you allow
-auto-approve. Autocomplete comes from Continue — Cline has none.
+Cline and Zoo Code always work with tools and ask before every change unless you allow
+auto-approve.
 
 In the browser the chat reads your workspace under `/workspace`, analyses dropped
 documents and stores system prompts as custom "models". Writing is impossible there — the
@@ -211,19 +202,27 @@ mount is read-only.
 
 ## Rules and skills
 
-**`AGENTS.md`** in the project root is read by Continue, Cline and Codex; it is the
-equivalent of `CLAUDE.md`. Note that Continue lists `["AGENTS.md", "AGENT.md", "CLAUDE.md"]`
-but breaks after the first entry, so **only `AGENTS.md` works** (as of 2.0.0). It is only
-looked for in the root, and with several folders open only the first one's file applies.
-
-More rules per project: `.continue/rules/*.md` for Continue, `.clinerules/` for Cline.
-Continue's frontmatter controls loading: `alwaysApply: true`, `globs: "src/**"`,
-`description: ...` (model decides) or `invokable: true` (via `@name`).
+**`AGENTS.md`** in the project root is read by Cline, Zoo Code and Codex; it is the
+equivalent of `CLAUDE.md`. More rules per project: `.clinerules/` for Cline and Zoo Code,
+plus `.roo/rules/` for Zoo Code.
 
 **Skills** in Claude's format work unchanged — same frontmatter, loaded on demand. Put
-them in `<project>/.claude/skills/<name>/SKILL.md`: Claude Code, Continue and Cline all
-read that folder. Measured with Continue, 10 skills and 11 questions: 10/11 routed
-correctly, all descriptions together cost about 850 tokens.
+them in `<project>/.claude/skills/<name>/SKILL.md`: Claude Code and Cline read that
+folder; Zoo Code uses `.roo/skills/` instead.
+
+**Skills in the browser chat** live in Open WebUI's database, not in a folder — it scans
+none, so import them from `SKILLS_DIR` in `.env`, by default `~/.agents/skills` (on
+Windows `C:/Users/<you>/.agents/skills`), one subfolder with a `SKILL.md` per skill:
+
+```bash
+./load-skills-openwebui.sh
+```
+
+New skills are added, changed ones updated, unchanged ones left alone — run it again
+after editing skills, no restart needed. Skills you delete from the folder stay in the
+chat; remove them under **Workspace → Skills**, where **Import skills** also takes a ZIP
+by hand. Models with native tool calling get the list and load a skill when it fits;
+otherwise mention it with `$` in the message.
 
 ---
 
@@ -231,7 +230,7 @@ correctly, all descriptions together cost about 850 tokens.
 
 Prompts, code and chats stay on the machine. Inference is local, Ollama listens on
 `127.0.0.1` only, Open WebUI binds to `127.0.0.1:3000` and talks to nothing but Ollama,
-`ENABLE_OPENAI_API` is off, embeddings run on local `nomic-embed-text`, and the file
+`ENABLE_OPENAI_API` is off, embeddings run on local `qwen3-embedding:0.6b`, and the file
 service has no port at all.
 
 Outbound connections without content: Ollama's update check, the one-time model and
@@ -262,9 +261,6 @@ With Colima, `brew services start colima` starts it at login.
 
 ## Troubleshooting
 
-**No autocomplete** — check `ollama ps`. The first request after a start loads the model
-and takes a few seconds.
-
 **Chat finds no models** — check that the container reaches Ollama:
 
 ```bash
@@ -282,10 +278,6 @@ Ollama to the whole network without a password.
 **Cline aborts with a timeout** — raise **Request Timeout** in the Cline settings, see
 [Cline](#cline).
 
-**"I don't have access to the files"** — true in Continue's chat mode; only **agent**
-mode gives the model tools. Even there a 30B model sometimes skips the tool on "create
-file X"; phrase it more directly.
-
 **Tool calls fail** — `Tool edit_file not found`, `arguments were invalid`, or raw
 `{"name": ...}` in the reply. The model emits its call in a format Ollama does not parse,
 so it lands in `message.content` instead of `message.tool_calls`. Test a model with two
@@ -301,9 +293,9 @@ curl -s http://localhost:11434/api/chat -d '{"model":"MODEL","stream":false,
 
 The call must appear under `message.tool_calls` **with both arguments**. If
 `<function=...>` turns up in `message.content`, that model cannot drive an agent.
-Measured: `qwen3-coder:30b` fails whenever an argument spans several lines — 4 of 10
-attempts succeeded — and a file edit passes exactly that, so ask it for small, targeted
-replacements. `qwen2.5-coder:32b` never produces a valid call.
+Measured with a file edit, whose arguments span several lines: `qwen3.6:35b-a3b` and
+`qwen3.8:27b` succeeded 5 of 5 times, `qwen3-coder:30b` only 4 of 10 — the reason it left
+the profiles. `qwen2.5-coder:32b` never produces a valid call.
 
 **Machine feels slow** — `ollama stop <model>` unloads immediately.
 
@@ -315,7 +307,7 @@ Skip this on a fresh install.
 
 Older versions installed a LaunchAgent for `OLLAMA_HOST`, `OLLAMA_KV_CACHE_TYPE` and
 others. The Ollama app starts its server with its own environment, so these never
-arrived — the server log shows them empty. Remove it, and reset the Continue config the
+arrived — the server log shows them empty. Remove it, and the Continue config the
 scripts copied into your home:
 
 ```bash
@@ -324,13 +316,21 @@ rm ~/Library/LaunchAgents/local.ollama.host.plist
 for v in OLLAMA_HOST OLLAMA_KEEP_ALIVE OLLAMA_FLASH_ATTENTION OLLAMA_KV_CACHE_TYPE OLLAMA_MAX_LOADED_MODELS; do
   launchctl unsetenv "$v"
 done
-rm ~/.continue/config.yaml    # Continue recreates it empty; back it up first if you edited it
+rm -r ~/.continue             # back it up first if you edited it
 ```
 
 They also named containers and volumes after the folder the repo was cloned into.
 `setup.sh` replaces such containers and copies their chat data into the new
 `lai-open-webui-data` volume once, keeping the old volumes as a backup — list them with
 `docker volume ls`, remove them with `docker volume rm` once everything works.
+
+Continue is no longer part of the setup: delete `.continue/` from your projects and
+uninstall the extension.
+
+Embeddings moved from `nomic-embed-text` to `qwen3-embedding:0.6b`. Open WebUI keeps the
+model it started with, so switch it under **Admin Panel → Settings → Documents** —
+documents uploaded before need re-indexing, which Open WebUI offers there. Then
+`ollama rm nomic-embed-text`.
 
 ---
 
@@ -340,6 +340,6 @@ They also named containers and volumes after the folder the repo was cloned into
 |---|---|
 | `setup.sh` | first-time install, calls `profile.sh` |
 | `profile.sh` | pull the models that fit the hardware, set browser chat defaults |
+| `load-skills-openwebui.sh` | import the skills from `SKILLS_DIR` into the browser chat |
 | `docker-compose.yml` | chat and file tool service |
-| `workspace/.continue/` | Continue blocks for models with context sizes and for context providers; copy into a project |
 | `.env.example` | template for `.env`, which is never committed |

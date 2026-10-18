@@ -14,10 +14,10 @@ services:
       WEBUI_NAME: ${WEBUI_NAME:-Local AI}
       ENABLE_SIGNUP: ${ENABLE_SIGNUP:-True}
       RAG_EMBEDDING_ENGINE: ollama
-      RAG_EMBEDDING_MODEL: nomic-embed-text
+      RAG_EMBEDDING_MODEL: qwen3-embedding:0.6b
       ENABLE_OPENAI_API: "False"
       # Read-only file tools for the chat
-      TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp-files:8000","path":"openapi.json","type":"openapi","auth_type":"bearer","key":"${MCP_API_KEY}","config":{"enable":true},"info":{"name":"Files (read-only)","description":"Reads files and directories in the workspace. Writing is technically impossible."}}]'
+      TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp-files:8000","path":"openapi.json","type":"openapi","auth_type":"none","config":{"enable":true},"info":{"name":"Files (read-only)","description":"Reads files and directories in the workspace. Writing is technically impossible."}}]'
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -25,7 +25,9 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
 
-  # Read-only file tools for the chat.
+  # Read-only file tools for the chat. No API key: no port leaves the compose network,
+  # and the only other container on it, open-webui, would hold the key anyway.
+  # The server version is pinned: unpinned, npx runs whatever npm serves at each start.
   mcp-files:
     image: ghcr.io/open-webui/mcpo:main
     container_name: lai-mcp-files
@@ -36,8 +38,8 @@ services:
       - ${WORKSPACE_DIR}:/workspace:ro
       - mcp-files-cache:/root/.npm
     command: >
-      mcpo --host 0.0.0.0 --port 8000 --api-key ${MCP_API_KEY}
-      -- npx -y @modelcontextprotocol/server-filesystem /workspace
+      mcpo --host 0.0.0.0 --port 8000
+      -- npx -y @modelcontextprotocol/server-filesystem@1.0.0 /workspace
 
 volumes:
   open-webui-data:

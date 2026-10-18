@@ -59,7 +59,6 @@ sed_inplace() {
   if sed --version >/dev/null 2>&1; then sed -i "$1" .env; else sed -i '' "$1" .env; fi
 }
 grep -q CHANGE_ME_SECRET  .env && sed_inplace "s/CHANGE_ME_SECRET/$(openssl rand -hex 32)/"  && echo "  WEBUI_SECRET_KEY generated"
-grep -q CHANGE_ME_MCP_KEY .env && sed_inplace "s/CHANGE_ME_MCP_KEY/$(openssl rand -hex 24)/" && echo "  MCP_API_KEY generated"
 
 if [ "$env_created" = "1" ]; then
   fail "Adjust WORKSPACE_DIR in .env to the folder the browser chat may read on this
@@ -113,11 +112,10 @@ cat <<DONE
 Done.
 
   Chat      http://localhost:3000   the first account becomes admin
-  VS Code   install Continue (Continue.continue) and/or Cline (saoudrizwan.claude-dev)
+  VS Code   install Cline (saoudrizwan.claude-dev) and/or Zoo Code
 
-  Enable it for a project:
-    cp -R $PWD/workspace/.continue <project>/
-  Cline settings, usage and troubleshooting: README.md
+  Cline and Zoo Code settings, usage and troubleshooting: README.md
   Change profile later: ./profile.sh
+  Import your skills into the chat: ./load-skills-openwebui.sh
 
 DONE
