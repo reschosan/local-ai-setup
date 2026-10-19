@@ -16,6 +16,7 @@ services:
       RAG_EMBEDDING_ENGINE: ollama
       RAG_EMBEDDING_MODEL: qwen3-embedding:0.6b
       ENABLE_OPENAI_API: "False"
+      ENABLE_CONTEXT_COMPACTION: "True"
       # Read-only file tools for the chat
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://mcp-files:8000","path":"openapi.json","type":"openapi","auth_type":"none","config":{"enable":true},"info":{"name":"Files (read-only)","description":"Reads files and directories in the workspace. Writing is technically impossible."}}]'
     extra_hosts:

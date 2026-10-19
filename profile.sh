@@ -27,6 +27,7 @@ profile_values() {
     small)  echo "qwen2.5-coder:7b 16384 qwen2.5-coder:7b qwen3-embedding:0.6b" ;;
     medium) echo "qwen3.6:35b-a3b  32768 qwen3.6:35b-a3b qwen3-embedding:0.6b" ;;
     large)  echo "qwen3.6:35b-a3b 131072 qwen3.6:35b-a3b qwen3.8:27b qwen3-embedding:0.6b" ;;
+    xlarge) echo "qwen3.6:35b-a3b 262144 qwen3.6:35b-a3b qwen3.8:27b qwen3-embedding:0.6b" ;;
     *) return 1 ;;
   esac
 }
@@ -81,7 +82,7 @@ EOF
 command -v ollama >/dev/null 2>&1 || fail "ollama not found."
 
 apply_checked() {
-  profile_values "$1" >/dev/null 2>&1 || fail "Unknown profile '$1'. Available: small, medium, large"
+  profile_values "$1" >/dev/null 2>&1 || fail "Unknown profile '$1'. Available: small, medium, large, xlarge"
   apply "$1"
 }
 
@@ -96,9 +97,11 @@ cat <<EOF
 
 Memory: ${ram} GB  ->  suggested profile: $suggested
 
-  small    qwen2.5-coder:7b                     16 GB+
-  medium   + qwen3.6:35b-a3b                    32 GB+
-  large    + qwen3.6:35b-a3b and qwen3.8:27b    48 GB+
+  Profile  Models                               Chat context   RAM
+  small    qwen2.5-coder:7b                            16384   16 GB+
+  medium   + qwen3.6:35b-a3b                           32768   32 GB+
+  large    + qwen3.6:35b-a3b and qwen3.8:27b          131072   48 GB+
+  xlarge   like large                                 262144   48 GB+
 
 EOF
 printf "Profile [%s]: " "$suggested"

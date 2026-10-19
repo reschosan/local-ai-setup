@@ -178,6 +178,7 @@ context size of their own: Cline always sends one, Open WebUI the one `profile.s
 | `small` | `qwen2.5-coder:7b` | 7B, 16k | 16 GB+ |
 | `medium` | + `qwen3.6:35b-a3b` | 3.6, 32k | 32 GB+ |
 | `large` | + `qwen3.6:35b-a3b`, `qwen3.8:27b` | 3.6, 128k | 48 GB+ |
+| `xlarge` | same as `large` | 3.6, 256k | 48 GB+ |
 
 `qwen3-embedding:0.6b` is always pulled for embeddings. On German and English questions
 against the sections of this README it found the right one 12 of 12 times,
