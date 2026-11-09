@@ -6,9 +6,9 @@ services:
     container_name: lai-open-webui
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${WEBUI_PORT:-3000}:8080"
-    # commented out because it's not needed for local development, use it if you want to expose the UI
-    #      - "${WEBUI_PORT:-3000}:8080"
+       - "127.0.0.1:${WEBUI_PORT:-3000}:8080"
+      # commented out because it's not needed for local development, use it if you want to expose the UI
+      #- "${WEBUI_PORT:-3000}:8080"
 
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
